@@ -12,7 +12,6 @@ import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.LinearSnapHelper;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SnapHelper;
 
@@ -29,6 +28,7 @@ public class CarouselView extends FrameLayout {
   private CarouselLinearLayoutManager layoutManager;
   private CarouselViewListener carouselViewListener;
   private CarouselScrollListener carouselScrollListener;
+  private CarouselOnManualSelectionListener carouselOnItemSelectedListener;
   private IndicatorAnimationType indicatorAnimationType;
   private OffsetType offsetType;
   private SnapHelper snapHelper;
@@ -42,6 +42,8 @@ public class CarouselView extends FrameLayout {
   private int spacing;
   private int currentItem;
   private boolean isResourceSet = false;
+
+  private CarouselViewAdapter carouselViewAdapter;
 
   public CarouselView(@NonNull Context context) {
     super(context);
@@ -63,6 +65,7 @@ public class CarouselView extends FrameLayout {
     this.autoPlayHandler = new Handler();
 
     carouselRecyclerView.setHasFixedSize(false);
+    carouselRecyclerView.getItemAnimator().setChangeDuration(0);
     this.initializeAttributes(attributeSet);
   }
 
@@ -89,8 +92,8 @@ public class CarouselView extends FrameLayout {
       this.setIndicatorAnimationType(this.getAnimation(attributes.getInteger(R.styleable.CarouselView_indicatorAnimationType, 0)));
       this.setIndicatorRadius(attributes.getInteger(R.styleable.CarouselView_indicatorRadius, 5));
       this.setIndicatorPadding(attributes.getInteger(R.styleable.CarouselView_indicatorPadding, 5));
-      this.setSize(attributes.getInteger(R.styleable.CarouselView_size, 0));
-      this.setSpacing(attributes.getInteger(R.styleable.CarouselView_spacing, 0));
+      this.setSize(attributes.getInteger(R.styleable.CarouselView_item_size, 0));
+      this.setSpacing(attributes.getInteger(R.styleable.CarouselView_item_spacing, 0));
       attributes.recycle();
     }
   }
@@ -114,11 +117,13 @@ public class CarouselView extends FrameLayout {
   }
 
   private void setAdapter() {
+    this.carouselRecyclerView.clearOnScrollListeners();
     this.layoutManager = new CarouselLinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false);
     this.layoutManager.isOffsetStart(this.getCarouselOffset() == OffsetType.START);
     if (this.getScaleOnScroll()) this.layoutManager.setScaleOnScroll(true);
     carouselRecyclerView.setLayoutManager(this.layoutManager);
-    this.carouselRecyclerView.setAdapter(new CarouselViewAdapter(getCarouselViewListener(), getResource(), getSize(), carouselRecyclerView, this.getSpacing(), this.getCarouselOffset() == OffsetType.CENTER));
+    carouselViewAdapter = new CarouselViewAdapter(getCarouselViewListener(), getResource(), getSize(), carouselRecyclerView, this.getSpacing(), this.getCarouselOffset() == OffsetType.CENTER);
+    this.carouselRecyclerView.setAdapter(carouselViewAdapter);
     if (this.enableSnapping) {
       this.carouselRecyclerView.setOnFlingListener(null);
       this.snapHelper.attachToRecyclerView(this.carouselRecyclerView);
@@ -129,17 +134,33 @@ public class CarouselView extends FrameLayout {
 
   private void setScrollListener() {
     this.carouselRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+      boolean wasScrollingManually = false;
       @Override
       public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
         super.onScrollStateChanged(recyclerView, newState);
-        View centerView = snapHelper.findSnapView(layoutManager);
-        int position = layoutManager.getPosition(centerView);
-        if (carouselScrollListener != null) {
-          carouselScrollListener.onScrollStateChanged(recyclerView, newState, position);
+
+        if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
+          wasScrollingManually = true;
         }
+
+        int snapPosition = getSnapPosition();
+
+        if(snapPosition >= 0) {
+          if (carouselScrollListener != null) {
+            carouselScrollListener.onScrollStateChanged(recyclerView, newState, snapPosition);
+          }
+
+          if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+            pageIndicatorView.setSelection(snapPosition);
+            if (carouselOnItemSelectedListener != null && wasScrollingManually) {
+              carouselOnItemSelectedListener.onItemManuallySelected(snapPosition);
+            }
+            setCurrentItem(snapPosition);
+          }
+        }
+
         if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-          pageIndicatorView.setSelection(position);
-          setCurrentItem(position);
+          wasScrollingManually = false;
         }
       }
 
@@ -188,7 +209,7 @@ public class CarouselView extends FrameLayout {
     this.offsetType = offsetType;
     switch (offsetType) {
       case CENTER:
-        this.snapHelper = new LinearSnapHelper();
+        this.snapHelper = new CustomLinearSnapHelper();
         break;
       case START:
         this.snapHelper = new CarouselSnapHelper();
@@ -208,7 +229,54 @@ public class CarouselView extends FrameLayout {
     } else {
       this.currentItem = item;
     }
-    this.carouselRecyclerView.smoothScrollToPosition(this.currentItem);
+  }
+
+  public void smoothScrollToItem(int index) {
+    int oldSelectedItem = currentItem;
+    setCurrentItem(index);
+
+    int indexToScroll = currentItem;
+    if(indexToScroll == 0) {
+      indexToScroll = 1;
+    }
+    else if(indexToScroll == size - 1) {
+      indexToScroll = size - 2;
+    }
+
+    View scrollView = layoutManager.findViewByPosition(currentItem);
+    if(scrollView == null) {
+      int offset = 300;
+      if(oldSelectedItem < indexToScroll) {
+        offset = getWidth() - offset;
+      }
+      layoutManager.scrollToPositionWithOffset(indexToScroll, offset);
+    }
+    else {
+      carouselRecyclerView.scrollToPosition(indexToScroll);
+    }
+    carouselRecyclerView.post(() -> {
+      View view = layoutManager.findViewByPosition(currentItem);
+      if (view == null) {
+        return;
+      }
+      int[] snapDistance = snapHelper.calculateDistanceToFinalSnap(layoutManager, view);
+      if (snapDistance[0] != 0 || snapDistance[1] != 0) {
+        carouselRecyclerView.smoothScrollBy(snapDistance[0], snapDistance[1]);
+//        carouselRecyclerView.postDelayed(new Runnable() {
+//          @Override
+//          public void run() {
+//            int snapPosition = getSnapPosition();
+//            if(snapPosition >= 0 && snapPosition != index) {
+//              Log.e("smoothtest", "smoothScrollBy is NOT done " + index);
+//              smoothScrollToItem(index);
+//            }
+//            else {
+//              Log.e("smoothtest", "smoothScrollBy is done " + index);
+//            }
+//          }
+//        }, 100);
+      }
+    });
   }
 
   public int getCurrentItem() {
@@ -332,12 +400,40 @@ public class CarouselView extends FrameLayout {
     this.carouselScrollListener = carouselScrollListener;
   }
 
+  public void setCarouselOnItemSelectedListener(CarouselOnManualSelectionListener carouselOnItemSelectedListener) {
+    this.carouselOnItemSelectedListener = carouselOnItemSelectedListener;
+  }
+
   public CarouselScrollListener getCarouselScrollListener() {
     return this.carouselScrollListener;
   }
 
+  public void notifyDataSetChanged() {
+    carouselViewAdapter.notifyDataSetChanged();
+  }
+
+  public void notifyItemChanged(int position) {
+    carouselViewAdapter.notifyItemChanged(position);
+  }
+
   private void validate() {
     if (!this.isResourceSet) throw new RuntimeException("Please add a resource layout to populate the carouselview");
+  }
+
+  private int getSnapPosition() {
+    int snapPosition = -1;
+    if(snapHelper instanceof CustomLinearSnapHelper) {
+      CustomLinearSnapHelper snap = (CustomLinearSnapHelper) snapHelper;
+      snapPosition = snap.getSnapPosition(layoutManager);
+    }
+    else {
+      View centerView = snapHelper.findSnapView(layoutManager);
+      if(centerView != null) {
+        snapPosition = layoutManager.getPosition(centerView);
+      }
+    }
+
+    return snapPosition;
   }
 
   private IndicatorAnimationType getAnimation(int value) {
@@ -394,5 +490,4 @@ public class CarouselView extends FrameLayout {
     this.validate();
     this.setAdapter();
   }
-
 }
