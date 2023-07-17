@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Handler;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -225,7 +224,8 @@ public class CarouselView extends FrameLayout {
     if (item < 0) {
       this.currentItem = 0;
     } else if (item >= this.getSize()) {
-      this.currentItem = this.getSize() - 1;
+      // stay on same position and doesn't scroll to last one
+//      this.currentItem = this.getSize() - 1;
     } else {
       this.currentItem = item;
     }
@@ -243,40 +243,34 @@ public class CarouselView extends FrameLayout {
       indexToScroll = size - 2;
     }
 
-    View scrollView = layoutManager.findViewByPosition(currentItem);
-    if(scrollView == null) {
+    View wantedView = layoutManager.findViewByPosition(currentItem);
+    if(wantedView == null) {
+      // scroll
       int offset = 300;
       if(oldSelectedItem < indexToScroll) {
         offset = getWidth() - offset;
       }
       layoutManager.scrollToPositionWithOffset(indexToScroll, offset);
+
+      carouselRecyclerView.post(() -> {
+        View view = layoutManager.findViewByPosition(currentItem);
+        smoothScrollToView(view);
+      });
     }
     else {
-      carouselRecyclerView.scrollToPosition(indexToScroll);
+      smoothScrollToView(wantedView);
     }
-    carouselRecyclerView.post(() -> {
-      View view = layoutManager.findViewByPosition(currentItem);
-      if (view == null) {
-        return;
-      }
-      int[] snapDistance = snapHelper.calculateDistanceToFinalSnap(layoutManager, view);
-      if (snapDistance[0] != 0 || snapDistance[1] != 0) {
-        carouselRecyclerView.smoothScrollBy(snapDistance[0], snapDistance[1]);
-//        carouselRecyclerView.postDelayed(new Runnable() {
-//          @Override
-//          public void run() {
-//            int snapPosition = getSnapPosition();
-//            if(snapPosition >= 0 && snapPosition != index) {
-//              Log.e("smoothtest", "smoothScrollBy is NOT done " + index);
-//              smoothScrollToItem(index);
-//            }
-//            else {
-//              Log.e("smoothtest", "smoothScrollBy is done " + index);
-//            }
-//          }
-//        }, 100);
-      }
-    });
+  }
+
+  private void smoothScrollToView(View view) {
+    if (view == null) {
+      return;
+    }
+    int[] snapDistance = snapHelper.calculateDistanceToFinalSnap(layoutManager, view);
+
+    if (snapDistance != null && (snapDistance[0] != 0 || snapDistance[1] != 0)) {
+      carouselRecyclerView.smoothScrollBy(snapDistance[0], snapDistance[1]);
+    }
   }
 
   public int getCurrentItem() {
