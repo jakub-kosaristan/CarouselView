@@ -11,7 +11,6 @@ import com.jama.carouselview.CarouselOnManualSelectionListener;
 import com.jama.carouselview.CarouselView;
 import com.jama.carouselview.CarouselViewListener;
 import com.jama.carouselview.enums.OffsetType;
-import com.visicom.android.sfa.utils.DelayedExecutor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +23,7 @@ public class MainActivity extends AppCompatActivity {
 
   int index = 0;
 
-  com.visicom.android.sfa.utils.DelayedExecutor delayedExecutor;
+  DelayedExecutor delayedExecutor;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -95,7 +94,8 @@ public class MainActivity extends AppCompatActivity {
     findViewById(R.id.textView4).setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        carouselView.smoothScrollToItem(0);
+        index = 1;
+        carouselView.smoothScrollToItem(1);
       }
     });
 

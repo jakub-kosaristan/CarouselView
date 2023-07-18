@@ -1,4 +1,4 @@
-package com.visicom.android.sfa.utils;
+package com.jama.carouselviewexample;
 
 import android.os.Handler;
 
