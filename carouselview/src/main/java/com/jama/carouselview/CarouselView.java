@@ -14,21 +14,16 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SnapHelper;
 
-import com.jama.carouselview.enums.IndicatorAnimationType;
 import com.jama.carouselview.enums.OffsetType;
-import com.rd.PageIndicatorView;
-import com.rd.animation.type.AnimationType;
 
 public class CarouselView extends FrameLayout {
 
   private Context context;
-  private PageIndicatorView pageIndicatorView;
   private RecyclerView carouselRecyclerView;
   private CarouselLinearLayoutManager layoutManager;
   private CarouselViewListener carouselViewListener;
   private CarouselScrollListener carouselScrollListener;
   private CarouselOnManualSelectionListener carouselOnItemSelectedListener;
-  private IndicatorAnimationType indicatorAnimationType;
   private OffsetType offsetType;
   private SnapHelper snapHelper;
   private boolean enableSnapping;
@@ -60,7 +55,6 @@ public class CarouselView extends FrameLayout {
     LayoutInflater inflater = LayoutInflater.from(context);
     View carouselView = inflater.inflate(R.layout.view_carousel, this);
     this.carouselRecyclerView = carouselView.findViewById(R.id.carouselRecyclerView);
-    this.pageIndicatorView = carouselView.findViewById(R.id.pageIndicatorView);
     this.autoPlayHandler = new Handler();
 
     carouselRecyclerView.setHasFixedSize(false);
@@ -80,17 +74,6 @@ public class CarouselView extends FrameLayout {
       if (resourceId != 0) {
         this.setResource(resourceId);
       }
-      int indicatorSelectedColorResourceId = attributes.getColor(R.styleable.CarouselView_indicatorSelectedColor, 0);
-      int indicatorUnselectedColorResourceId = attributes.getColor(R.styleable.CarouselView_indicatorUnselectedColor, 0);
-      if (indicatorSelectedColorResourceId != 0) {
-        this.setIndicatorSelectedColor(indicatorSelectedColorResourceId);
-      }
-      if (indicatorUnselectedColorResourceId != 0) {
-        this.setIndicatorUnselectedColor(indicatorUnselectedColorResourceId);
-      }
-      this.setIndicatorAnimationType(this.getAnimation(attributes.getInteger(R.styleable.CarouselView_indicatorAnimationType, 0)));
-      this.setIndicatorRadius(attributes.getInteger(R.styleable.CarouselView_indicatorRadius, 5));
-      this.setIndicatorPadding(attributes.getInteger(R.styleable.CarouselView_indicatorPadding, 5));
       this.setSize(attributes.getInteger(R.styleable.CarouselView_item_size, 0));
       this.setSpacing(attributes.getInteger(R.styleable.CarouselView_item_spacing, 0));
       attributes.recycle();
@@ -99,14 +82,6 @@ public class CarouselView extends FrameLayout {
 
   public void enableSnapping(boolean enable) {
     this.enableSnapping = enable;
-  }
-
-  public void hideIndicator(boolean hide) {
-    if (hide) {
-      this.pageIndicatorView.setVisibility(GONE);
-    } else {
-      this.pageIndicatorView.setVisibility(VISIBLE);
-    }
   }
 
   @Override
@@ -150,7 +125,6 @@ public class CarouselView extends FrameLayout {
           }
 
           if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-            pageIndicatorView.setSelection(snapPosition);
             if (carouselOnItemSelectedListener != null && wasScrollingManually) {
               carouselOnItemSelectedListener.onItemManuallySelected(snapPosition);
             }
@@ -277,77 +251,6 @@ public class CarouselView extends FrameLayout {
     return this.currentItem;
   }
 
-  public void setIndicatorAnimationType(IndicatorAnimationType indicatorAnimationType) {
-    this.indicatorAnimationType = indicatorAnimationType;
-    switch (indicatorAnimationType) {
-      case DROP:
-        this.pageIndicatorView.setAnimationType(AnimationType.DROP);
-        break;
-      case FILL:
-        this.pageIndicatorView.setAnimationType(AnimationType.FILL);
-        break;
-      case NONE:
-        this.pageIndicatorView.setAnimationType(AnimationType.NONE);
-        break;
-      case SWAP:
-        this.pageIndicatorView.setAnimationType(AnimationType.SWAP);
-        break;
-      case WORM:
-        this.pageIndicatorView.setAnimationType(AnimationType.WORM);
-        break;
-      case COLOR:
-        this.pageIndicatorView.setAnimationType(AnimationType.COLOR);
-        break;
-      case SCALE:
-        this.pageIndicatorView.setAnimationType(AnimationType.SCALE);
-        break;
-      case SLIDE:
-        this.pageIndicatorView.setAnimationType(AnimationType.SLIDE);
-        break;
-      case THIN_WORM:
-        this.pageIndicatorView.setAnimationType(AnimationType.THIN_WORM);
-        break;
-      case SCALE_DOWN:
-        this.pageIndicatorView.setAnimationType(AnimationType.SCALE_DOWN);
-    }
-  }
-
-  public IndicatorAnimationType getIndicatorAnimationType() {
-    return this.indicatorAnimationType;
-  }
-
-  public void setIndicatorRadius(int radius) {
-    this.pageIndicatorView.setRadius(radius);
-  }
-
-  public int getIndicatorRadius() {
-    return this.pageIndicatorView.getRadius();
-  }
-
-  public void setIndicatorPadding(int padding) {
-    this.pageIndicatorView.setPadding(padding);
-  }
-
-  public int getIndicatorPadding() {
-    return this.pageIndicatorView.getPadding();
-  }
-
-  public void setIndicatorSelectedColor(int color) {
-    this.pageIndicatorView.setSelectedColor(color);
-  }
-
-  public int getIndicatorSelectedColor() {
-    return this.pageIndicatorView.getSelectedColor();
-  }
-
-  public void setIndicatorUnselectedColor(int color) {
-    this.pageIndicatorView.setUnselectedColor(color);
-  }
-
-  public int getIndicatorUnselectedColor() {
-    return this.pageIndicatorView.getUnselectedColor();
-  }
-
   public void setScaleOnScroll(boolean scaleOnScroll) {
     this.scaleOnScroll = scaleOnScroll;
   }
@@ -358,7 +261,6 @@ public class CarouselView extends FrameLayout {
 
   public void setSize(int size) {
     this.size = size;
-    this.pageIndicatorView.setCount(size);
   }
 
   public int getSize() {
@@ -428,43 +330,6 @@ public class CarouselView extends FrameLayout {
     }
 
     return snapPosition;
-  }
-
-  private IndicatorAnimationType getAnimation(int value) {
-    IndicatorAnimationType animationType;
-    switch (value) {
-      case 1:
-        animationType = IndicatorAnimationType.FILL;
-        break;
-      case 2:
-        animationType = IndicatorAnimationType.DROP;
-        break;
-      case 3:
-        animationType = IndicatorAnimationType.SWAP;
-        break;
-      case 4:
-        animationType = IndicatorAnimationType.WORM;
-        break;
-      case 5:
-        animationType = IndicatorAnimationType.COLOR;
-        break;
-      case 6:
-        animationType = IndicatorAnimationType.SCALE;
-        break;
-      case 7:
-        animationType = IndicatorAnimationType.SLIDE;
-        break;
-      case 8:
-        animationType = IndicatorAnimationType.THIN_WORM;
-        break;
-      case 9:
-        animationType = IndicatorAnimationType.SCALE_DOWN;
-        break;
-      case 0:
-      default:
-        animationType = IndicatorAnimationType.NONE;
-    }
-    return animationType;
   }
 
   private OffsetType getOffset(int value) {

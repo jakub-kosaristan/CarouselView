@@ -130,7 +130,6 @@ public class MainActivity extends AppCompatActivity {
     carouselView.setSize(images.size());
     carouselView.setAutoPlay(false);
     carouselView.setResource(R.layout.center_carousel_item);
-    carouselView.hideIndicator(true);
     carouselView.setCarouselOffset(OffsetType.CENTER);
     carouselView.setScaleOnScroll(true);
     carouselView.setCarouselViewListener(new CarouselViewListener() {
